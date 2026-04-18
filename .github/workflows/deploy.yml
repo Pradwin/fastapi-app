@@ -1,38 +1,55 @@
 name: CI/CD Pipeline
 
 on:
-push:
-branches:
-- master
+  push:
+    branches:
+      - main  # Changed from master to main (verify your branch name!)
 
 jobs:
-build-and-deploy:
-runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout Code
-    uses: actions/checkout@v3
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-  - name: Login to DockerHub
-    uses: docker/login-action@v2
-    with:
-      username: ${{ secrets.DOCKER_USERNAME }}
-      password: ${{ secrets.DOCKER_PASSWORD }}
+      # Recommended: Set up Docker Buildx for better caching/performance
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-  - name: Build Docker Image
-    run: docker build -t ${{ secrets.DOCKER_USERNAME }}/fastapi-app .
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-  - name: Push Docker Image
-    run: docker push ${{ secrets.DOCKER_USERNAME }}/fastapi-app
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
 
-  - name: Deploy to EC2
-    uses: appleboy/ssh-action@master
-    with:
-      host: ${{ secrets.EC2_HOST }}
-      username: ec2-user
-      key: ${{ secrets.EC2_SSH_KEY }}
-      script: |
-        docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-app
-        docker stop fastapi-container || true
-        docker rm fastapi-container || true
-        docker run -d -p 8000:8000 --name fastapi-container ${{ secrets.DOCKER_USERNAME }}/fastapi-app
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Pull the latest image
+            docker pull ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
+            
+            # Stop and remove existing container if it exists
+            docker stop fastapi-container || true
+            docker rm fastapi-container || true
+            
+            # Run the new container
+            docker run -d \
+              --name fastapi-container \
+              -p 8000:8000 \
+              --restart always \
+              ${{ secrets.DOCKER_USERNAME }}/fastapi-app:latest
+            
+            # Optional: Clean up old unused images to save disk space
+            docker image prune -f
