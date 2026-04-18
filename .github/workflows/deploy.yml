@@ -9,7 +9,6 @@ jobs:
 build-and-deploy:
 runs-on: ubuntu-latest
 
-```
 steps:
   - name: Checkout Code
     uses: actions/checkout@v3
@@ -37,5 +36,4 @@ steps:
         docker stop fastapi-container || true
         docker rm fastapi-container || true
         docker run -d -p 8000:8000 --name fastapi-container ${{ secrets.DOCKER_USERNAME }}/fastapi-app
-```
 
