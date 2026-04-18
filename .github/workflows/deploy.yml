@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
 push:
 branches:
-- main
+- master
 
 jobs:
 build-and-deploy:
@@ -36,4 +36,3 @@ steps:
         docker stop fastapi-container || true
         docker rm fastapi-container || true
         docker run -d -p 8000:8000 --name fastapi-container ${{ secrets.DOCKER_USERNAME }}/fastapi-app
-
